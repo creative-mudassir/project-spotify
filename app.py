@@ -321,6 +321,11 @@ class PlaylistTransformer:
 app = Flask(__name__)
 CORS(app)
 
+@app.get("/health")
+def health():
+    return jsonify({"ok": True})
+
+
 STATE = {
     'recsys': None,
     'transformer': None,
@@ -994,9 +999,27 @@ def add_tracks():
         return jsonify({'success': False, 'error': str(e)})
 
 
+# @app.route('/api/playlist')
+# def get_playlist():
+#     try:
+#         tracks = []
+#         for idx in STATE['transformer'].current_playlist[-10:]:
+#             info = STATE['recsys'].get_track_info(idx)
+#             tracks.append(info)
+
+#         return jsonify({'success': True, 'tracks': tracks})
+#     except Exception as e:
+#         return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/playlist')
 def get_playlist():
     try:
+        if not STATE['initialized']:
+            return jsonify({
+                'success': False,
+                'error': 'App not initialized. Upload CSV first.'
+            }), 400
+
         tracks = []
         for idx in STATE['transformer'].current_playlist[-10:]:
             info = STATE['recsys'].get_track_info(idx)
@@ -1004,7 +1027,8 @@ def get_playlist():
 
         return jsonify({'success': True, 'tracks': tracks})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 
 # def open_browser():
