@@ -450,6 +450,7 @@
 
     <script>
         let currentRecommendations = [];
+        const API_BASE = "https://project-spotify-production.up.railway.app";
 
         async function initializeApp() {
             const csvFile = document.getElementById('csvFile').files[0];
@@ -465,7 +466,7 @@
             formData.append('api_key', apiKey);
 
             try {
-                const response = await fetch('/api/initialize', {
+                const response = await fetch(`${API_BASE}/api/initialize`, {
                     method: 'POST',
                     body: formData
                 });
@@ -491,7 +492,7 @@
             document.getElementById('messageResponse').innerHTML = '<div class="loading">🎵 Finding the perfect tracks...</div>';
 
             try {
-                const response = await fetch('/api/chat', {
+                const response = await fetch(`${API_BASE}/api/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message })
@@ -544,7 +545,7 @@
             const indices = currentRecommendations.map(t => t.index);
 
             try {
-                const response = await fetch('/api/add-tracks', {
+                const response = await fetch(`${API_BASE}/api/add-tracks`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ indices })
@@ -564,7 +565,7 @@
 
         async function updatePlaylist() {
             try {
-                const response = await fetch('/api/playlist');
+                const response = await fetch(`${API_BASE}/api/playlist`);
                 const result = await response.json();
 
                 let html = '';
