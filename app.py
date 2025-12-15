@@ -1018,42 +1018,20 @@ def add_tracks():
 #     except Exception as e:
 #         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/initialize', methods=['POST'])
-def initialize():
+
+@app.route('/api/playlist')
+def get_playlist():
     try:
-        csv_file = request.files.get('csv_file')
-        api_key = request.form.get('api_key', '').strip()
+        if not STATE.get('initialized'):
+            # return 200 so browser doesn’t show "failed to load resource"
+            return jsonify({'success': True, 'initialized': False, 'tracks': []}), 200
 
-        if not csv_file:
-            return jsonify({'success': False, 'error': 'No CSV file provided'}), 400
+        tracks = []
+        for idx in STATE['transformer'].current_playlist[-10:]:
+            tracks.append(STATE['recsys'].get_track_info(idx))
 
-        df = pd.read_csv(csv_file)
-
-        required = [
-            'acousticness','danceability','energy','instrumentalness',
-            'liveness','loudness','speechiness','tempo','valence'
-        ]
-        missing = [c for c in required if c not in df.columns]
-        if missing:
-            return jsonify({
-                'success': False,
-                'error': f"CSV missing required columns: {missing}. Found columns: {list(df.columns)[:25]}"
-            }), 400
-
-        STATE['recsys'] = SpotifyRecSysConstrained(df)
-        STATE['llm'] = HuggingFaceLLM(api_key)
-        STATE['transformer'] = PlaylistTransformer(STATE['recsys'], STATE['llm'])
-
-        initial_indices = np.random.choice(len(df), min(5, len(df)), replace=False).tolist()
-        STATE['transformer'].set_initial_playlist(initial_indices)
-        STATE['initialized'] = True
-
-        return jsonify({'success': True}), 200
-
+        return jsonify({'success': True, 'initialized': True, 'tracks': tracks}), 200
     except Exception as e:
-        # IMPORTANT: show full error in Railway logs
-        import traceback
-        print(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
