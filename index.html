@@ -570,8 +570,13 @@
         async function updatePlaylist() {
             try {
                 const response = await fetch(`${API_BASE}/api/playlist`);
+            
+            
                 if (!response.ok) return; // ignore 400
                 const result = await response.json();
+                if (!result.initialized) return; 
+
+
 
                 let html = '';
                 if (result.tracks && result.tracks.length > 0) {

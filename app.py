@@ -999,9 +999,16 @@ def add_tracks():
         return jsonify({'success': False, 'error': str(e)})
 
 
+
 # @app.route('/api/playlist')
 # def get_playlist():
 #     try:
+#         if not STATE['initialized']:
+#             return jsonify({
+#                 'success': False,
+#                 'error': 'App not initialized. Upload CSV first.'
+#             }), 400
+
 #         tracks = []
 #         for idx in STATE['transformer'].current_playlist[-10:]:
 #             info = STATE['recsys'].get_track_info(idx)
@@ -1009,26 +1016,23 @@ def add_tracks():
 
 #         return jsonify({'success': True, 'tracks': tracks})
 #     except Exception as e:
-#         return jsonify({'success': False, 'error': str(e)})
+#         return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/playlist')
 def get_playlist():
     try:
-        if not STATE['initialized']:
-            return jsonify({
-                'success': False,
-                'error': 'App not initialized. Upload CSV first.'
-            }), 400
+        if not STATE.get('initialized'):
+            # return 200 so browser doesn’t show "failed to load resource"
+            return jsonify({'success': True, 'initialized': False, 'tracks': []}), 200
 
         tracks = []
         for idx in STATE['transformer'].current_playlist[-10:]:
-            info = STATE['recsys'].get_track_info(idx)
-            tracks.append(info)
+            tracks.append(STATE['recsys'].get_track_info(idx))
 
-        return jsonify({'success': True, 'tracks': tracks})
+        return jsonify({'success': True, 'initialized': True, 'tracks': tracks}), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 
 # def open_browser():
