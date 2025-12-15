@@ -6,7 +6,7 @@
   <title>Spotify AI Recommender</title>
 
   <style>
-    /* aapka pura CSS yahan same as-is paste kar sakte ho */
+    /* apna full CSS yahin paste karo (same as before) */
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#0f0f0f;color:#fff;min-height:100vh;overflow-x:hidden;}
     .app-container{display:flex;min-height:100vh;}
@@ -15,8 +15,7 @@
     .playlist-section{margin-bottom:30px;}
     .playlist-section h3{font-size:12px;font-weight:700;text-transform:uppercase;color:#b3b3b3;margin-bottom:12px;letter-spacing:1.5px;}
     .track-list-sidebar{max-height:400px;overflow-y:auto;}
-    .track-item-sidebar{padding:10px 0;border-bottom:1px solid #282828;font-size:13px;color:#b3b3b3;cursor:pointer;transition:color .2s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .track-item-sidebar:hover{color:#fff;}
+    .track-item-sidebar{padding:10px 0;border-bottom:1px solid #282828;font-size:13px;color:#b3b3b3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .main-content{flex:1;margin-left:300px;padding:40px;max-width:1200px;}
     .setup-section{display:none;max-width:500px;margin:0 auto;text-align:center;}
     .setup-section.active{display:block;}
@@ -24,8 +23,8 @@
     .setup-section p{color:#b3b3b3;margin-bottom:40px;font-size:1.05em;}
     .form-group{margin-bottom:20px;text-align:left;}
     .form-group label{display:block;margin-bottom:8px;font-weight:600;color:#fff;font-size:.95em;}
-    .form-group input{width:100%;padding:12px 15px;border:1px solid #282828;border-radius:8px;font-size:1em;background:#282828;color:#fff;transition:all .3s;}
-    .btn{background:#1DB954;color:#000;border:none;padding:12px 32px;border-radius:24px;font-size:1em;font-weight:700;cursor:pointer;transition:all .3s;width:100%;text-transform:uppercase;letter-spacing:.5px;}
+    .form-group input{width:100%;padding:12px 15px;border:1px solid #282828;border-radius:8px;font-size:1em;background:#282828;color:#fff;}
+    .btn{background:#1DB954;color:#000;border:none;padding:12px 32px;border-radius:24px;font-size:1em;font-weight:700;cursor:pointer;width:100%;text-transform:uppercase;}
     .btn-send{width:50px;height:50px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;font-size:1.2em;}
     .chat-section{display:none;}
     .chat-section.active{display:block;}
@@ -36,6 +35,8 @@
     .loading{text-align:center;color:#1DB954;font-weight:600;padding:40px;font-size:1.1em;}
     .error{background:#3e1f1f;color:#ff6b6b;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #ff6b6b;}
     .success{background:#1a3e1a;color:#51cf66;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #51cf66;}
+    .rec-item{background:linear-gradient(135deg,#282828 0%,#1a1a1a 100%);padding:20px;border-radius:12px;border:1px solid #282828;margin-bottom:15px;}
+    .similarity-badge{background:#1DB954;color:#000;padding:6px 12px;border-radius:20px;font-weight:700;font-size:.85em;white-space:nowrap;}
     @media(max-width:768px){.sidebar{width:100%;height:auto;position:relative;border-right:none;border-bottom:1px solid #282828}.main-content{margin-left:0;padding:20px}}
   </style>
 </head>
@@ -61,8 +62,9 @@
 
         <div class="form-group">
           <label>📁 Upload CSV File</label>
-          <input type="file" id="csvFile" accept=".csv" required />
-          <small>Your Spotify features dataset</small>
+          <!-- ✅ .csv OR .csv.gz -->
+          <input type="file" id="csvFile" accept=".csv,.gz" required />
+          <small>Tip: Big file ho to .csv.gz upload karo</small>
         </div>
 
         <div class="form-group">
@@ -93,14 +95,14 @@
 
   <script>
     let currentRecommendations = [];
-    const API_BASE = "https://project-spotify-production.up.railway.app"; // ✅ same domain: https://project-spotify-production.up.railway.app
+    const API_BASE = window.location.origin; // ✅ no hardcode
 
     async function initializeApp() {
       const csvFile = document.getElementById("csvFile").files[0];
       const apiKey = document.getElementById("apiKey").value;
 
       if (!csvFile) {
-        alert("Please select a CSV file");
+        alert("Please select a CSV file (.csv or .csv.gz)");
         return;
       }
 
@@ -109,11 +111,16 @@
       formData.append("api_key", apiKey);
 
       try {
-        const response = await fetch(`${API_BASE}/api/initialize`, { method: "POST", body: formData });
-        const result = await response.json();
+        const res = await fetch(`${API_BASE}/api/initialize`, { method: "POST", body: formData });
 
-        if (!response.ok || !result.success) {
-          alert("Init failed: " + (result.error || response.status));
+        // try to read JSON even on error
+        const text = await res.text();
+        let data = null;
+        try { data = JSON.parse(text); } catch { data = { success:false, error:text }; }
+
+        if (!res.ok || !data.success) {
+          alert("Init failed: " + (data.error || res.status));
+          console.log("Init debug:", data);
           return;
         }
 
@@ -136,20 +143,20 @@
         '<div class="loading">🎵 Finding the perfect tracks...</div>';
 
       try {
-        const response = await fetch(`${API_BASE}/api/chat`, {
+        const res = await fetch(`${API_BASE}/api/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message }),
         });
 
-        const result = await response.json();
+        const data = await res.json();
 
-        if (result.success) {
-          displayRecommendations(result);
+        if (data.success) {
+          displayRecommendations(data);
           document.getElementById("userMessage").value = "";
         } else {
           document.getElementById("messageResponse").innerHTML =
-            `<div class="error">❌ ${result.error}</div>`;
+            `<div class="error">❌ ${data.error}</div>`;
         }
       } catch (err) {
         document.getElementById("messageResponse").innerHTML =
@@ -157,15 +164,15 @@
       }
     }
 
-    function displayRecommendations(result) {
-      let html = `<h3>🎯 ${result.interpretation}</h3>`;
+    function displayRecommendations(data) {
+      let html = `<h3>🎯 ${data.interpretation}</h3>`;
 
-      if (result.new_recommendations && result.new_recommendations.length > 0) {
+      if (data.new_recommendations && data.new_recommendations.length > 0) {
         html += '<div class="recommendations"><h3>Top Matches</h3>';
 
-        result.new_recommendations.slice(0, 5).forEach((track, i) => {
+        data.new_recommendations.slice(0, 5).forEach((track, i) => {
           html += `
-            <div class="rec-item" style="background:linear-gradient(135deg,#282828 0%,#1a1a1a 100%);padding:20px;border-radius:12px;border:1px solid #282828;margin-bottom:15px;">
+            <div class="rec-item">
               <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
                 <div style="flex:1;">
                   <strong>${i + 1}. ${track.name}</strong>
@@ -179,8 +186,7 @@
         });
 
         html += "</div>";
-        currentRecommendations = result.new_recommendations.slice(0, 5);
-
+        currentRecommendations = data.new_recommendations.slice(0, 5);
         html += `<button class="btn" style="margin-top:10px;" onclick="addTracks()">➕ Add Top 5 to Playlist</button>`;
       }
 
@@ -191,20 +197,20 @@
       const indices = currentRecommendations.map((t) => t.index);
 
       try {
-        const response = await fetch(`${API_BASE}/api/add-tracks`, {
+        const res = await fetch(`${API_BASE}/api/add-tracks`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ indices }),
         });
 
-        const result = await response.json();
+        const data = await res.json();
 
-        if (result.success) {
+        if (data.success) {
           document.getElementById("messageResponse").innerHTML +=
             '<div class="success">✅ Tracks added to your playlist!</div>';
           updatePlaylist();
         } else {
-          alert(result.error || "Failed to add tracks");
+          alert(data.error || "Failed to add tracks");
         }
       } catch (err) {
         alert("Error adding tracks: " + err.message);
@@ -213,14 +219,14 @@
 
     async function updatePlaylist() {
       try {
-        const response = await fetch(`${API_BASE}/api/playlist`);
-        const result = await response.json();
+        const res = await fetch(`${API_BASE}/api/playlist`);
+        const data = await res.json();
 
-        if (!result.initialized) return;
+        if (!data.initialized) return;
 
         let html = "";
-        if (result.tracks && result.tracks.length > 0) {
-          result.tracks.forEach((track) => {
+        if (data.tracks && data.tracks.length > 0) {
+          data.tracks.forEach((track) => {
             html += `<div class="track-item-sidebar">🎵 ${track.name}</div>`;
           });
         } else {

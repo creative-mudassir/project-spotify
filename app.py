@@ -1,10 +1,11 @@
 import os
+import traceback
 import pandas as pd
 import numpy as np
+
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from typing import List, Dict
-import requests
 
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
@@ -14,81 +15,108 @@ from flask_cors import CORS
 class SpotifyRecSysConstrained:
     def __init__(self, df: pd.DataFrame):
         self.df = df.copy()
+
         self.feature_cols = [
-            'acousticness', 'danceability', 'energy', 'instrumentalness',
-            'liveness', 'loudness', 'speechiness', 'tempo', 'valence'
+            "acousticness", "danceability", "energy", "instrumentalness",
+            "liveness", "loudness", "speechiness", "tempo", "valence"
         ]
+
         self._normalize_features()
         self.feature_matrix = self._build_feature_matrix()
+
         self.scaler = StandardScaler()
         self.feature_matrix_scaled = self.scaler.fit_transform(self.feature_matrix)
 
         self.feature_constraints = {
-            'acousticness': {
-                'positive': {'energy': 'soft', 'instrumentalness': 'increase'},
-                'negative': {'energy': 'flexible', 'instrumentalness': 'flexible'}
+            "acousticness": {
+                "positive": {"energy": "soft", "instrumentalness": "increase"},
+                "negative": {"energy": "flexible", "instrumentalness": "flexible"},
             },
-            'energy': {
-                'positive': {'valence': 'increase', 'tempo': 'increase'},
-                'negative': {'valence': 'flexible', 'tempo': 'decrease'}
+            "energy": {
+                "positive": {"valence": "increase", "tempo": "increase"},
+                "negative": {"valence": "flexible", "tempo": "decrease"},
             },
-            'valence': {
-                'positive': {'energy': 'increase', 'instrumentalness': 'flexible'},
-                'negative': {'energy': 'decrease', 'acousticness': 'increase'}
-            }
+            "valence": {
+                "positive": {"energy": "increase", "instrumentalness": "flexible"},
+                "negative": {"energy": "decrease", "acousticness": "increase"},
+            },
         }
 
     def _normalize_features(self):
-        if 'loudness' in self.df.columns:
-            mn = self.df['loudness'].min()
-            mx = self.df['loudness'].max()
-            self.df['loudness_norm'] = (self.df['loudness'] - mn) / (mx - mn + 1e-9)
+        # normalize loudness and tempo (optional)
+        if "loudness" in self.df.columns:
+            mn = pd.to_numeric(self.df["loudness"], errors="coerce").min()
+            mx = pd.to_numeric(self.df["loudness"], errors="coerce").max()
+            self.df["loudness_norm"] = (pd.to_numeric(self.df["loudness"], errors="coerce") - mn) / (mx - mn + 1e-9)
 
-        if 'tempo' in self.df.columns:
-            mn = self.df['tempo'].min()
-            mx = self.df['tempo'].max()
-            self.df['tempo_norm'] = (self.df['tempo'] - mn) / (mx - mn + 1e-9)
+        if "tempo" in self.df.columns:
+            mn = pd.to_numeric(self.df["tempo"], errors="coerce").min()
+            mx = pd.to_numeric(self.df["tempo"], errors="coerce").max()
+            self.df["tempo_norm"] = (pd.to_numeric(self.df["tempo"], errors="coerce") - mn) / (mx - mn + 1e-9)
 
     def _build_feature_matrix(self) -> np.ndarray:
-        features = []
-        for col in self.feature_cols:
-            if col in self.df.columns:
-                features.append(self.df[col].values)
-            elif col == 'loudness' and 'loudness_norm' in self.df.columns:
-                features.append(self.df['loudness_norm'].values)
-            elif col == 'tempo' and 'tempo_norm' in self.df.columns:
-                features.append(self.df['tempo_norm'].values)
-        return np.column_stack(features)
+        # prefer normalized columns when present
+        col_map = {
+            "acousticness": "acousticness",
+            "danceability": "danceability",
+            "energy": "energy",
+            "instrumentalness": "instrumentalness",
+            "liveness": "liveness",
+            "loudness": "loudness_norm" if "loudness_norm" in self.df.columns else "loudness",
+            "speechiness": "speechiness",
+            "tempo": "tempo_norm" if "tempo_norm" in self.df.columns else "tempo",
+            "valence": "valence",
+        }
 
-    def get_playlist_mood_vector(self, track_indices):
+        missing = [c for c in self.feature_cols if col_map[c] not in self.df.columns]
+        if missing:
+            raise ValueError(
+                "CSV missing required columns: " + ", ".join(missing)
+                + " | Found: " + ", ".join(list(self.df.columns)[:60])
+            )
+
+        # convert to numeric (safe)
+        X = np.column_stack([
+            pd.to_numeric(self.df[col_map[c]], errors="coerce").fillna(0).astype(float).values
+            for c in self.feature_cols
+        ])
+
+        if X.shape[1] != len(self.feature_cols) or X.shape[0] == 0:
+            raise ValueError(f"Invalid feature matrix shape: {X.shape}")
+
+        return X
+
+    def get_playlist_mood_vector(self, track_indices: List[int]):
         if not track_indices:
-            return np.zeros(self.feature_matrix_scaled.shape[1])
+            return np.zeros(self.feature_matrix_scaled.shape[1], dtype=float)
         return self.feature_matrix_scaled[track_indices].mean(axis=0)
 
-    def adjust_mood_vector_with_constraints(self, base_vector, adjustments):
+    def adjust_mood_vector_with_constraints(self, base_vector, adjustments: Dict[str, float]):
         adjusted = base_vector.copy()
 
+        # apply direct adjustments
         for feature, delta in adjustments.items():
             if feature in self.feature_cols:
                 idx = self.feature_cols.index(feature)
-                adjusted[idx] = np.clip(adjusted[idx] + delta, -3, 3)
+                adjusted[idx] = np.clip(adjusted[idx] + float(delta), -3, 3)
 
+        # apply constraints
         for feature, delta in adjustments.items():
             if feature in self.feature_constraints and delta != 0:
-                direction = 'positive' if delta > 0 else 'negative'
+                direction = "positive" if delta > 0 else "negative"
                 constraints = self.feature_constraints[feature].get(direction, {})
 
                 for conflicting_feature, constraint_type in constraints.items():
-                    if conflicting_feature not in adjustments or adjustments[conflicting_feature] == 0:
+                    if conflicting_feature not in adjustments or adjustments.get(conflicting_feature, 0) == 0:
                         if conflicting_feature in self.feature_cols:
                             idx = self.feature_cols.index(conflicting_feature)
                             mag = abs(delta)
 
-                            if constraint_type == 'soft':
+                            if constraint_type == "soft":
                                 adjusted[idx] *= 0.5
-                            elif constraint_type == 'increase':
+                            elif constraint_type == "increase":
                                 adjusted[idx] = np.clip(adjusted[idx] + mag * 0.4, -3, 3)
-                            elif constraint_type == 'decrease':
+                            elif constraint_type == "decrease":
                                 adjusted[idx] = np.clip(adjusted[idx] - mag * 0.4, -3, 3)
 
         return adjusted
@@ -104,14 +132,14 @@ class SpotifyRecSysConstrained:
         top = np.argsort(sims)[::-1][:n_recommendations]
         return [(int(i), float(sims[i])) for i in top if sims[i] > 0]
 
-    def get_track_info(self, index):
+    def get_track_info(self, index: int):
         row = self.df.iloc[index]
         return {
-            'name': row.get('track_name', 'Unknown'),
-            'artist': row.get('artist_name', 'Unknown'),
-            'genre': row.get('genre', 'Unknown'),
-            'popularity': int(row.get('popularity', 0)),
-            'index': int(index)
+            "name": row.get("track_name", "Unknown"),
+            "artist": row.get("artist_name", "Unknown"),
+            "genre": row.get("genre", "Unknown"),
+            "popularity": int(row.get("popularity", 0)),
+            "index": int(index),
         }
 
 # ===================== SIMPLE "LLM" RULES =====================
@@ -119,14 +147,9 @@ class SpotifyRecSysConstrained:
 class HuggingFaceLLM:
     def __init__(self, api_key: str):
         self.api_key = (api_key or "").strip()
-        if self.api_key:
-            try:
-                requests.get("https://huggingface.co", timeout=3)
-            except:
-                pass
 
     def extract_adjustments(self, user_message: str) -> Dict[str, float]:
-        msg = user_message.lower()
+        msg = (user_message or "").lower()
 
         mood_rules = {
             "energetic": {"energy": 0.7, "danceability": 0.6, "valence": 0.4, "tempo": 0.5},
@@ -140,7 +163,7 @@ class HuggingFaceLLM:
             "relaxing": {"energy": -0.7, "valence": 0.3, "loudness": -0.4},
             "happy": {"valence": 0.8, "energy": 0.5, "danceability": 0.5},
             "slow": {"tempo": -0.6, "energy": -0.4},
-            "fast": {"tempo": 0.6, "energy": 0.5}
+            "fast": {"tempo": 0.6, "energy": 0.5},
         }
 
         adjustments = {
@@ -148,9 +171,9 @@ class HuggingFaceLLM:
             "instrumentalness": 0, "speechiness": 0, "liveness": 0, "loudness": 0, "tempo": 0
         }
 
-        for key, vals in mood_rules.items():
-            if key in msg:
-                adjustments.update(vals)
+        for k, v in mood_rules.items():
+            if k in msg:
+                adjustments.update(v)
 
         return adjustments
 
@@ -175,7 +198,7 @@ class PlaylistTransformer:
         recs = self.recsys.recommend_by_mood_vector(
             adjusted,
             n_recommendations=10,
-            exclude_indices=list(self.excluded_tracks)
+            exclude_indices=list(self.excluded_tracks),
         )
 
         new_recs = []
@@ -186,17 +209,17 @@ class PlaylistTransformer:
                 "artist": info["artist"],
                 "genre": info["genre"],
                 "similarity": round(sim, 3),
-                "index": idx
+                "index": idx,
             })
             self.excluded_tracks.add(idx)
 
         return {
             "interpretation": f"Transforming playlist: {user_message}",
-            "new_recommendations": new_recs
+            "new_recommendations": new_recs,
         }
 
     def add_tracks_to_playlist(self, track_indices: List[int]):
-        self.current_playlist.extend(track_indices)
+        self.current_playlist.extend([int(i) for i in track_indices])
 
 # ===================== FLASK APP =====================
 
@@ -207,7 +230,7 @@ STATE = {"recsys": None, "llm": None, "transformer": None, "initialized": False}
 
 @app.get("/")
 def index():
-    # index.html same folder me hoga
+    # index.html same folder me hona chahiye
     try:
         with open("index.html", "r", encoding="utf-8") as f:
             return Response(f.read(), mimetype="text/html")
@@ -227,7 +250,15 @@ def initialize():
         if not csv_file:
             return jsonify({"success": False, "error": "No CSV file provided"}), 400
 
-        df = pd.read_csv(csv_file)
+        # ✅ supports .csv and .csv.gz
+        filename = (csv_file.filename or "").lower()
+        if filename.endswith(".gz"):
+            df = pd.read_csv(csv_file, compression="gzip")
+        else:
+            df = pd.read_csv(csv_file)
+
+        if df is None or df.empty:
+            return jsonify({"success": False, "error": "CSV is empty"}), 400
 
         STATE["recsys"] = SpotifyRecSysConstrained(df)
         STATE["llm"] = HuggingFaceLLM(api_key)
@@ -238,8 +269,13 @@ def initialize():
 
         STATE["initialized"] = True
         return jsonify({"success": True})
+
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "trace": traceback.format_exc().splitlines()[-10:]
+        }), 500
 
 @app.post("/api/chat")
 def chat():
@@ -254,6 +290,7 @@ def chat():
 
         result = STATE["transformer"].chat(message)
         return jsonify({"success": True, **result})
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -270,6 +307,7 @@ def add_tracks():
 
         STATE["transformer"].add_tracks_to_playlist(indices)
         return jsonify({"success": True})
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -284,6 +322,7 @@ def get_playlist():
             tracks.append(STATE["recsys"].get_track_info(idx))
 
         return jsonify({"success": True, "initialized": True, "tracks": tracks}), 200
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
