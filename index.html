@@ -1,1006 +1,595 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Playlist DJ — Mood Recommender</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify AI Recommender</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  <style>
-    :root{
-      /* default theme (neutral) */
-      --bg1:#0b0f14;
-      --bg2:#05070b;
-      --card:#0f1722cc;
-      --card2:#101826aa;
-      --stroke:#223044;
-      --text:#eaf2ff;
-      --muted:#a8b3c7;
-      --accent:#1DB954; /* spotify green */
-      --accent2:#1ed760;
-      --glow:rgba(29,185,84,.35);
-      --shadow: 0 18px 55px rgba(0,0,0,.55);
-      --radius: 18px;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0f0f0f;
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
 
-    /* Mood themes */
-    body[data-mood="energetic"]{
-      --bg1:#0b0f14; --bg2:#05070b;
-      --accent:#ffb703; --accent2:#fb8500; --glow:rgba(255,183,3,.32);
-    }
-    body[data-mood="sad"]{
-      --bg1:#070a12; --bg2:#04060c;
-      --accent:#4ea8de; --accent2:#5390d9; --glow:rgba(78,168,222,.28);
-    }
-    body[data-mood="chill"]{
-      --bg1:#071318; --bg2:#030a0d;
-      --accent:#57cc99; --accent2:#38b000; --glow:rgba(87,204,153,.26);
-    }
-    body[data-mood="dance"]{
-      --bg1:#100716; --bg2:#07020c;
-      --accent:#ff4d6d; --accent2:#c77dff; --glow:rgba(199,125,255,.25);
-    }
-    body[data-mood="acoustic"]{
-      --bg1:#10100a; --bg2:#070704;
-      --accent:#e9c46a; --accent2:#f4a261; --glow:rgba(233,196,106,.22);
-    }
-    body[data-mood="electronic"]{
-      --bg1:#070311; --bg2:#05010b;
-      --accent:#00f5d4; --accent2:#00bbf9; --glow:rgba(0,245,212,.22);
-    }
-    body[data-mood="happy"]{
-      --bg1:#0a120a; --bg2:#040804;
-      --accent:#80ed99; --accent2:#57cc99; --glow:rgba(128,237,153,.24);
-    }
-    body[data-mood="relaxing"]{
-      --bg1:#07101a; --bg2:#030711;
-      --accent:#bde0fe; --accent2:#a2d2ff; --glow:rgba(162,210,255,.22);
-    }
-    body[data-mood="upbeat"]{
-      --bg1:#0d0a14; --bg2:#05030a;
-      --accent:#ffd60a; --accent2:#ff7b00; --glow:rgba(255,214,10,.22);
-    }
-    body[data-mood="melancholic"]{
-      --bg1:#0b0f1a; --bg2:#050712;
-      --accent:#9b5de5; --accent2:#5a189a; --glow:rgba(155,93,229,.24);
-    }
-    body[data-mood="slow"]{
-      --bg1:#0b1016; --bg2:#04070c;
-      --accent:#adb5bd; --accent2:#6c757d; --glow:rgba(173,181,189,.20);
-    }
-    body[data-mood="fast"]{
-      --bg1:#120a0a; --bg2:#070303;
-      --accent:#ff006e; --accent2:#ffbe0b; --glow:rgba(255,0,110,.22);
-    }
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
 
-    *{box-sizing:border-box;}
-    html,body{height:100%;}
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      color:var(--text);
-      background:
-        radial-gradient(900px 600px at 20% 10%, var(--glow), transparent 55%),
-        radial-gradient(900px 600px at 85% 25%, rgba(255,255,255,.04), transparent 60%),
-        linear-gradient(180deg, var(--bg1), var(--bg2));
-      overflow-x:hidden;
-      cursor:none; /* custom cursor enabled */
-    }
+        .sidebar {
+            width: 300px;
+            background: #121212;
+            padding: 24px;
+            border-right: 1px solid #282828;
+            overflow-y: auto;
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+        }
 
-    /* Custom cursor */
-    .cursor-dot, .cursor-ring, .cursor-trail{
-      position:fixed;
-      top:0; left:0;
-      pointer-events:none;
-      z-index:9999;
-      transform: translate(-50%, -50%);
-      border-radius:50%;
-      mix-blend-mode: screen;
-    }
-    .cursor-dot{
-      width:8px; height:8px;
-      background:var(--accent);
-      box-shadow: 0 0 18px var(--glow);
-    }
-    .cursor-ring{
-      width:34px; height:34px;
-      border:1px solid rgba(255,255,255,.22);
-      box-shadow: 0 0 18px rgba(255,255,255,.06);
-      backdrop-filter: blur(8px);
-    }
-    .cursor-trail{
-      width:14px; height:14px;
-      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.25), transparent 55%);
-      border:1px solid rgba(255,255,255,.10);
-      opacity:.7;
-      filter: blur(.2px);
-    }
+        .logo {
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 30px;
+            color: #1DB954;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-    .app{
-      min-height:100vh;
-      display:flex;
-    }
+        .playlist-section {
+            margin-bottom: 30px;
+        }
 
-    /* Sidebar */
-    .sidebar{
-      width:320px;
-      padding:26px 22px;
-      border-right:1px solid rgba(255,255,255,.08);
-      background: linear-gradient(180deg, rgba(14,18,28,.88), rgba(10,12,18,.70));
-      backdrop-filter: blur(16px);
-      position:fixed;
-      top:0; left:0;
-      height:100vh;
-      overflow:auto;
-    }
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-weight:900;
-      letter-spacing:.3px;
-      font-size:22px;
-      margin-bottom:20px;
-    }
-    .brand-badge{
-      width:42px; height:42px;
-      display:grid; place-items:center;
-      border-radius:14px;
-      background: linear-gradient(135deg, rgba(255,255,255,.12), rgba(255,255,255,.04));
-      border:1px solid rgba(255,255,255,.10);
-      box-shadow: 0 12px 32px rgba(0,0,0,.45);
-    }
-    .brand span{
-      color:var(--accent);
-      text-shadow: 0 0 22px var(--glow);
-    }
-    .pill{
-      margin-top:10px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      font-size:12px;
-      color:var(--muted);
-      border:1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.04);
-    }
-    .pill strong{
-      color:var(--text);
-      font-weight:800;
-    }
+        .playlist-section h3 {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #b3b3b3;
+            margin-bottom: 12px;
+            letter-spacing: 1.5px;
+        }
 
-    .section{
-      margin-top:18px;
-      padding-top:18px;
-      border-top:1px solid rgba(255,255,255,.06);
-    }
-    .section h3{
-      margin:0 0 10px 0;
-      font-size:12px;
-      letter-spacing:1.6px;
-      text-transform:uppercase;
-      color:rgba(255,255,255,.70);
-    }
-    .tracklist{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      max-height:62vh;
-      overflow:auto;
-      padding-right:8px;
-    }
-    .track{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.08);
-      background: rgba(255,255,255,.03);
-      transition: transform .18s ease, border-color .18s ease, background .18s ease;
-    }
-    .track:hover{
-      transform: translateY(-2px);
-      border-color: rgba(255,255,255,.18);
-      background: rgba(255,255,255,.06);
-    }
-    .dot{
-      width:10px; height:10px;
-      border-radius:50%;
-      background: var(--accent);
-      box-shadow: 0 0 16px var(--glow);
-      flex:0 0 auto;
-    }
-    .track .name{
-      font-size:13px;
-      color:rgba(255,255,255,.85);
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
+        .track-list-sidebar {
+            max-height: 400px;
+            overflow-y: auto;
+        }
 
-    /* Main */
-    .main{
-      flex:1;
-      margin-left:320px;
-      padding:44px 34px;
-      max-width:1200px;
-      width:100%;
-    }
+        .track-item-sidebar {
+            padding: 10px 0;
+            border-bottom: 1px solid #282828;
+            font-size: 13px;
+            color: #b3b3b3;
+            cursor: pointer;
+            transition: color 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-    .card{
-      border-radius: var(--radius);
-      border:1px solid rgba(255,255,255,.10);
-      background: linear-gradient(135deg, var(--card), var(--card2));
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
-      overflow:hidden;
-    }
+        .track-item-sidebar:hover {
+            color: #fff;
+        }
 
-    .setup{
-      max-width:560px;
-      margin:40px auto 0 auto;
-      padding:26px;
-    }
+        .track-item-sidebar:last-child {
+            border-bottom: none;
+        }
 
-    .hero{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:16px;
-      margin-bottom:16px;
-    }
-    .hero h1{
-      margin:0;
-      font-size:36px;
-      letter-spacing:-.6px;
-      line-height:1.05;
-    }
-    .hero h1 .accent{
-      color:var(--accent);
-      text-shadow: 0 0 22px var(--glow);
-    }
-    .hero p{
-      margin:10px 0 0 0;
-      color:var(--muted);
-      line-height:1.55;
-      font-size:14px;
-    }
-    .hero-icon{
-      width:72px; height:72px;
-      border-radius:20px;
-      display:grid; place-items:center;
-      border:1px solid rgba(255,255,255,.12);
-      background:
-        radial-gradient(40px 40px at 30% 20%, rgba(255,255,255,.18), transparent 60%),
-        linear-gradient(135deg, rgba(255,255,255,.10), rgba(255,255,255,.03));
-      box-shadow: 0 22px 46px rgba(0,0,0,.55);
-      font-size:28px;
-    }
+        .main-content {
+            flex: 1;
+            margin-left: 300px;
+            padding: 40px;
+            max-width: 1200px;
+        }
 
-    .grid{
-      display:grid;
-      gap:14px;
-      margin-top:14px;
-    }
-    .field label{
-      display:block;
-      font-weight:800;
-      font-size:12px;
-      letter-spacing:1.2px;
-      text-transform:uppercase;
-      color:rgba(255,255,255,.72);
-      margin-bottom:8px;
-    }
-    .input{
-      width:100%;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.20);
-      color:var(--text);
-      outline:none;
-      transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
-    }
-    .input:focus{
-      border-color: rgba(255,255,255,.22);
-      box-shadow: 0 0 0 4px rgba(255,255,255,.05), 0 0 0 2px var(--glow);
-      transform: translateY(-1px);
-    }
-    .hint{
-      font-size:12px;
-      color:rgba(255,255,255,.55);
-      margin-top:6px;
-      line-height:1.35;
-    }
+        .setup-section {
+            display: none;
+            max-width: 500px;
+            margin: 0 auto;
+            text-align: center;
+        }
 
-    .btn{
-      width:100%;
-      border:none;
-      border-radius:999px;
-      padding:12px 16px;
-      font-weight:900;
-      letter-spacing:.9px;
-      text-transform:uppercase;
-      cursor:pointer;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color:#071009;
-      box-shadow: 0 18px 40px var(--glow);
-      transition: transform .18s ease, filter .18s ease;
-      position:relative;
-      overflow:hidden;
-    }
-    .btn:hover{ transform: translateY(-2px) scale(1.01); filter:saturate(1.05); }
-    .btn:active{ transform: translateY(0px) scale(.99); }
+        .setup-section.active {
+            display: block;
+        }
 
-    /* Ripple effect */
-    .ripple{
-      position:absolute;
-      border-radius:50%;
-      transform:translate(-50%,-50%);
-      pointer-events:none;
-      background: rgba(255,255,255,.35);
-      animation:rip 650ms ease-out forwards;
-    }
-    @keyframes rip{
-      from{ width:0; height:0; opacity:.55; }
-      to{ width:320px; height:320px; opacity:0; }
-    }
+        .setup-section h1 {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #1DB954, #1ed760);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 900;
+        }
 
-    /* Chat area */
-    .chat{
-      display:none;
-    }
-    .chat.active{
-      display:block;
-      max-width:860px;
-      margin:10px auto 0 auto;
-    }
+        .setup-section p {
+            color: #b3b3b3;
+            margin-bottom: 40px;
+            font-size: 1.05em;
+        }
 
-    .topbar{
-      display:flex;
-      align-items:flex-end;
-      justify-content:space-between;
-      gap:16px;
-      margin-bottom:18px;
-    }
-    .title{
-      margin:0;
-      font-size:28px;
-      letter-spacing:-.4px;
-    }
-    .subtitle{
-      margin:6px 0 0 0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.4;
-    }
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
 
-    .mood-chip{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 14px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.04);
-      font-size:13px;
-      color:rgba(255,255,255,.85);
-      white-space:nowrap;
-    }
-    .mood-emoji{
-      font-size:18px;
-      filter: drop-shadow(0 0 18px var(--glow));
-    }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #fff;
+            font-size: 0.95em;
+        }
 
-    .promptbox{
-      margin-top:14px;
-      padding:16px;
-    }
-    .prompts{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:10px;
-    }
-    .tag{
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.04);
-      color:rgba(255,255,255,.82);
-      font-size:13px;
-      cursor:pointer;
-      transition: transform .15s ease, background .15s ease, border-color .15s ease;
-      user-select:none;
-    }
-    .tag:hover{
-      transform: translateY(-1px);
-      border-color: rgba(255,255,255,.22);
-      background: rgba(255,255,255,.07);
-    }
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #282828;
+            border-radius: 8px;
+            font-size: 1em;
+            background: #282828;
+            color: #fff;
+            transition: all 0.3s;
+        }
 
-    .composer{
-      display:flex;
-      gap:10px;
-      margin-top:16px;
-      align-items:center;
-    }
-    .composer input{
-      flex:1;
-      padding:14px 16px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.22);
-      color:var(--text);
-      outline:none;
-      transition: box-shadow .18s ease, border-color .18s ease;
-    }
-    .composer input:focus{
-      border-color: rgba(255,255,255,.22);
-      box-shadow: 0 0 0 4px rgba(255,255,255,.05), 0 0 0 2px var(--glow);
-    }
-    .send{
-      width:52px; height:52px;
-      border-radius:999px;
-      border:none;
-      cursor:pointer;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color:#071009;
-      font-size:18px;
-      font-weight:900;
-      box-shadow: 0 16px 36px var(--glow);
-      transition: transform .18s ease;
-      position:relative;
-      overflow:hidden;
-    }
-    .send:hover{ transform: translateY(-2px) scale(1.02); }
-    .send:active{ transform: translateY(0) scale(.98); }
+        .form-group input:focus {
+            outline: none;
+            border-color: #1DB954;
+            background: #1a1a1a;
+        }
 
-    .panel{
-      margin-top:18px;
-    }
-    .loading{
-      padding:18px;
-      text-align:center;
-      color:rgba(255,255,255,.85);
-      font-weight:700;
-    }
-    .loading .spin{
-      display:inline-block;
-      margin-right:10px;
-      animation: spin 900ms linear infinite;
-    }
-    @keyframes spin{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
+        .form-group small {
+            color: #b3b3b3;
+            display: block;
+            margin-top: 6px;
+            font-size: 0.85em;
+        }
 
-    .error, .success{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.04);
-      color:rgba(255,255,255,.88);
-    }
-    .error{ border-color: rgba(255,80,80,.30); background: rgba(255,80,80,.08); }
-    .success{ border-color: rgba(80,255,160,.26); background: rgba(80,255,160,.07); }
+        .btn {
+            background: #1DB954;
+            color: #000;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 24px;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
 
-    .recs{
-      margin-top:16px;
-      display:grid;
-      gap:12px;
-    }
-    .rec{
-      padding:16px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.10);
-      background:
-        radial-gradient(600px 200px at 10% 0%, var(--glow), transparent 60%),
-        rgba(255,255,255,.03);
-      transition: transform .18s ease, border-color .18s ease;
-    }
-    .rec:hover{
-      transform: translateY(-3px);
-      border-color: rgba(255,255,255,.18);
-    }
-    .rec-top{
-      display:flex;
-      justify-content:space-between;
-      gap:14px;
-      align-items:flex-start;
-    }
-    .rec-title{
-      margin:0;
-      font-size:16px;
-      font-weight:900;
-      letter-spacing:-.2px;
-    }
-    .rec-artist{
-      margin-top:6px;
-      color:rgba(255,255,255,.70);
-      font-size:13px;
-    }
-    .rec-genre{
-      margin-top:10px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      font-size:12px;
-      padding:7px 10px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.18);
-      color:rgba(255,255,255,.82);
-    }
-    .badge{
-      padding:8px 12px;
-      border-radius:999px;
-      font-weight:900;
-      font-size:12px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color:#071009;
-      box-shadow: 0 16px 36px var(--glow);
-      white-space:nowrap;
-    }
+        .btn:hover {
+            background: #1ed760;
+            transform: scale(1.02);
+        }
 
-    .add{
-      margin-top:14px;
-      display:inline-flex;
-      align-items:center;
-      gap:10px;
-      padding:12px 16px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.05);
-      color:rgba(255,255,255,.90);
-      font-weight:900;
-      cursor:pointer;
-      transition: transform .18s ease, border-color .18s ease, background .18s ease;
-    }
-    .add:hover{
-      transform: translateY(-2px);
-      border-color: rgba(255,255,255,.20);
-      background: rgba(255,255,255,.08);
-    }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
-    .footer-note{
-      margin-top:14px;
-      color:rgba(255,255,255,.55);
-      font-size:12px;
-    }
+        .chat-section {
+            display: none;
+        }
 
-    /* Scrollbars */
-    ::-webkit-scrollbar{ width:10px; }
-    ::-webkit-scrollbar-track{ background: rgba(255,255,255,.03); }
-    ::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.10); border-radius:999px; }
-    ::-webkit-scrollbar-thumb:hover{ background: rgba(255,255,255,.16); }
+        .chat-section.active {
+            display: block;
+        }
 
-    /* Mobile */
-    @media (max-width: 860px){
-      body{ cursor:auto; }
-      .cursor-dot, .cursor-ring, .cursor-trail{ display:none; }
-      .sidebar{
-        position:relative;
-        width:100%;
-        height:auto;
-        border-right:none;
-        border-bottom:1px solid rgba(255,255,255,.08);
-      }
-      .main{
-        margin-left:0;
-        padding:20px 16px 46px 16px;
-      }
-      .setup{ margin-top:20px; }
-    }
-  </style>
+        .header-title {
+            font-size: 2em;
+            font-weight: 900;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+
+        .keywords {
+            background: #282828;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+
+        .keywords strong {
+            display: block;
+            margin-bottom: 10px;
+            color: #1DB954;
+            font-size: 0.95em;
+        }
+
+        .keywords p {
+            color: #b3b3b3;
+            line-height: 1.6;
+            font-size: 0.9em;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .chat-input-container input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 1px solid #282828;
+            border-radius: 24px;
+            font-size: 1em;
+            background: #282828;
+            color: #fff;
+            transition: all 0.3s;
+        }
+
+        .chat-input-container input:focus {
+            outline: none;
+            border-color: #1DB954;
+            background: #1a1a1a;
+        }
+
+        .chat-input-container input::placeholder {
+            color: #6a6a6a;
+        }
+
+        .btn-send {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+        }
+
+        .recommendations {
+            margin-top: 20px;
+        }
+
+        .recommendations h3 {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        .rec-item {
+            background: linear-gradient(135deg, #282828 0%, #1a1a1a 100%);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #282828;
+            transition: all 0.3s;
+            margin-bottom: 15px;
+        }
+
+        .rec-item:hover {
+            background: linear-gradient(135deg, #333333 0%, #1a1a1a 100%);
+            border-color: #1DB954;
+            transform: translateY(-4px);
+        }
+
+        .rec-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .rec-item-title {
+            flex: 1;
+        }
+
+        .rec-item strong {
+            display: block;
+            color: #fff;
+            font-size: 1.05em;
+            margin-bottom: 4px;
+            word-break: break-word;
+        }
+
+        .rec-item-artist {
+            color: #b3b3b3;
+            font-size: 0.9em;
+        }
+
+        .rec-item-genre {
+            color: #1DB954;
+            font-size: 0.85em;
+            margin-top: 8px;
+        }
+
+        .similarity-badge {
+            background: #1DB954;
+            color: #000;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85em;
+            white-space: nowrap;
+        }
+
+        .add-btn {
+            background: #1DB954;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 700;
+            margin-top: 15px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .add-btn:hover {
+            background: #1ed760;
+            transform: scale(1.02);
+        }
+
+        .loading {
+            text-align: center;
+            color: #1DB954;
+            font-weight: 600;
+            padding: 40px;
+            font-size: 1.1em;
+        }
+
+        .error {
+            background: #3e1f1f;
+            color: #ff6b6b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff6b6b;
+        }
+
+        .success {
+            background: #1a3e1a;
+            color: #51cf66;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #51cf66;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #121212;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #282828;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #404040;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                border-right: none;
+                border-bottom: 1px solid #282828;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+        }
+    </style>
 </head>
-
-<body data-mood="neutral">
-  <!-- Custom cursor -->
-  <div class="cursor-dot" id="cursorDot"></div>
-  <div class="cursor-ring" id="cursorRing"></div>
-  <div class="cursor-trail" id="cursorTrail"></div>
-
-  <div class="app">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-badge">♫</div>
-        <div>
-          Playlist DJ<br/>
-          <span>AI Mood</span>
-        </div>
-      </div>
-      <div class="pill">
-        <span>🎚️</span>
-        <span>Theme:</span>
-        <strong id="themeLabel">Neutral</strong>
-      </div>
-
-      <div class="section">
-        <h3>📻 Your Playlist</h3>
-        <div class="tracklist" id="playlistTracks">
-          <div class="track">
-            <div class="dot"></div>
-            <div class="name" style="opacity:.65;">Upload CSV to start…</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <h3>⚡ Tips</h3>
-        <div style="color:rgba(255,255,255,.65); font-size:13px; line-height:1.55;">
-          Use moods like <b>energetic</b>, <b>sad</b>, <b>chill</b>, <b>dance</b>, <b>acoustic</b>, <b>electronic</b>…
-          <div class="footer-note">Theme changes automatically after search ✨</div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Main -->
-    <main class="main">
-
-      <!-- Setup -->
-      <section class="card setup" id="setupSection">
-        <div class="hero">
-          <div>
-            <h1>Playlist <span class="accent">DJ</span></h1>
-            <p>Upload your Spotify features CSV and describe a vibe. UI will shift colors by mood + show emojis + glow cursor.</p>
-          </div>
-          <div class="hero-icon">🎧</div>
-        </div>
-
-        <div class="grid">
-          <div class="field">
-            <label>📁 Upload CSV File</label>
-            <input class="input" type="file" id="csvFile" accept=".csv" required />
-            <div class="hint">Your dataset should have audio features columns (energy, valence, tempo, etc.)</div>
-          </div>
-
-          <div class="field">
-            <label>🔑 Hugging Face API Key (Optional)</label>
-            <input class="input" type="password" id="apiKey" placeholder="Leave blank for basic mode" />
-            <div class="hint">If blank, the app uses keyword mood rules.</div>
-          </div>
-
-          <button class="btn" id="startBtn">Get Started</button>
-        </div>
-      </section>
-
-      <!-- Chat -->
-      <section class="chat" id="chatSection">
-        <div class="topbar">
-          <div>
-            <h2 class="title">✨ Discover New Music</h2>
-            <p class="subtitle">Type a mood prompt. After results, theme & emoji update automatically.</p>
-          </div>
-
-          <div class="mood-chip">
-            <span class="mood-emoji" id="moodEmoji">🎛️</span>
-            <span id="moodText">Neutral</span>
-          </div>
-        </div>
-
-        <div class="card promptbox">
-          <div style="font-weight:900; letter-spacing:.8px; text-transform:uppercase; font-size:12px; color:rgba(255,255,255,.72);">
-            💡 Quick moods
-          </div>
-          <div class="prompts" id="promptTags">
-            <div class="tag" data-tag="energetic">⚡ energetic</div>
-            <div class="tag" data-tag="sad">🌧️ sad</div>
-            <div class="tag" data-tag="chill">🧊 chill</div>
-            <div class="tag" data-tag="dance">🪩 dance</div>
-            <div class="tag" data-tag="acoustic">🪵 acoustic</div>
-            <div class="tag" data-tag="electronic">🤖 electronic</div>
-            <div class="tag" data-tag="upbeat">😄 upbeat</div>
-            <div class="tag" data-tag="melancholic">🌙 melancholic</div>
-            <div class="tag" data-tag="relaxing">🌿 relaxing</div>
-            <div class="tag" data-tag="happy">☀️ happy</div>
-            <div class="tag" data-tag="slow">🐢 slow</div>
-            <div class="tag" data-tag="fast">🏎️ fast</div>
-          </div>
-
-          <div class="composer">
-            <input type="text" id="userMessage" placeholder="Describe the mood you want… e.g. chill & relaxing" />
-            <button class="send" id="sendBtn">→</button>
-          </div>
-        </div>
-
-        <div class="panel" id="messageResponse"></div>
-      </section>
-
-    </main>
-  </div>
-
-  <script>
-    // ✅ Set your API base (local or deployed)
-    // const API_BASE = ""; // local (same origin)
-    const API_BASE = "https://project-spotify-production.up.railway.app";
-
-    let currentRecommendations = [];
-
-    // ---------- Mood detection + Theme ----------
-    const MOODS = [
-      { key:"energetic",   emoji:"⚡", label:"Energetic" },
-      { key:"sad",         emoji:"🌧️", label:"Sad" },
-      { key:"chill",       emoji:"🧊", label:"Chill" },
-      { key:"dance",       emoji:"🪩", label:"Dance" },
-      { key:"acoustic",    emoji:"🪵", label:"Acoustic" },
-      { key:"electronic",  emoji:"🤖", label:"Electronic" },
-      { key:"upbeat",      emoji:"😄", label:"Upbeat" },
-      { key:"melancholic", emoji:"🌙", label:"Melancholic" },
-      { key:"relaxing",    emoji:"🌿", label:"Relaxing" },
-      { key:"happy",       emoji:"☀️", label:"Happy" },
-      { key:"slow",        emoji:"🐢", label:"Slow" },
-      { key:"fast",        emoji:"🏎️", label:"Fast" },
-    ];
-
-    function detectMood(text){
-      const t = (text || "").toLowerCase();
-      for(const m of MOODS){
-        if(t.includes(m.key)) return m;
-      }
-      // small extras
-      if(t.includes("calm")) return {key:"relaxing", emoji:"🌿", label:"Relaxing"};
-      if(t.includes("party")) return {key:"dance", emoji:"🪩", label:"Dance"};
-      return {key:"neutral", emoji:"🎛️", label:"Neutral"};
-    }
-
-    function applyMood(mood){
-      document.body.setAttribute("data-mood", mood.key);
-      document.getElementById("moodEmoji").textContent = mood.emoji;
-      document.getElementById("moodText").textContent = mood.label;
-      document.getElementById("themeLabel").textContent = mood.label;
-    }
-
-    // ---------- Ripple on buttons ----------
-    function addRipple(el, x, y){
-      const r = document.createElement("span");
-      r.className = "ripple";
-      const rect = el.getBoundingClientRect();
-      r.style.left = (x - rect.left) + "px";
-      r.style.top  = (y - rect.top) + "px";
-      el.appendChild(r);
-      setTimeout(() => r.remove(), 700);
-    }
-
-    // ---------- Initialize ----------
-    const startBtn = document.getElementById("startBtn");
-    startBtn.addEventListener("click", async (e) => {
-      addRipple(startBtn, e.clientX, e.clientY);
-
-      const csvFile = document.getElementById("csvFile").files[0];
-      const apiKey = document.getElementById("apiKey").value;
-
-      if(!csvFile){
-        alert("Please select a CSV file");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("csv_file", csvFile);
-      formData.append("api_key", apiKey);
-
-      try{
-        const res = await fetch(`${API_BASE}/api/initialize`, { method:"POST", body: formData });
-        const result = await res.json();
-
-        if(result.success){
-          document.getElementById("setupSection").style.display = "none";
-          const chat = document.getElementById("chatSection");
-          chat.classList.add("active");
-          applyMood({key:"neutral", emoji:"🎛️", label:"Neutral"});
-          updatePlaylist();
-        }else{
-          alert("Error: " + result.error);
-        }
-      }catch(err){
-        alert("Connection error: " + err.message);
-      }
-    });
-
-    // ---------- Quick tags ----------
-    document.getElementById("promptTags").addEventListener("click", (e) => {
-      const tag = e.target.closest(".tag");
-      if(!tag) return;
-      const value = tag.dataset.tag;
-      document.getElementById("userMessage").value = value;
-      document.getElementById("userMessage").focus();
-    });
-
-    // ---------- Send message ----------
-    const sendBtn = document.getElementById("sendBtn");
-    sendBtn.addEventListener("click", async (e) => {
-      addRipple(sendBtn, e.clientX, e.clientY);
-      await sendMessage();
-    });
-
-    document.getElementById("userMessage").addEventListener("keypress", (e) => {
-      if(e.key === "Enter") sendMessage();
-    });
-
-    async function sendMessage(){
-      const input = document.getElementById("userMessage");
-      const message = input.value.trim();
-      if(!message) return;
-
-      const mood = detectMood(message);
-      applyMood(mood);
-
-      const panel = document.getElementById("messageResponse");
-      panel.innerHTML = `
-        <div class="card" style="padding:16px;">
-          <div class="loading"><span class="spin">⏳</span> ${mood.emoji} Finding the perfect tracks…</div>
-        </div>
-      `;
-
-      try{
-        const res = await fetch(`${API_BASE}/api/chat`, {
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ message })
-        });
-
-        const result = await res.json();
-
-        if(result.success){
-          input.value = "";
-          displayRecommendations(result, mood);
-        }else{
-          panel.innerHTML = `<div class="error">❌ ${result.error}</div>`;
-        }
-      }catch(err){
-        panel.innerHTML = `<div class="error">❌ ${err.message}</div>`;
-      }
-    }
-
-    function displayRecommendations(result, mood){
-      const top5 = (result.new_recommendations || []).slice(0,5);
-      currentRecommendations = top5;
-
-      let html = `
-        <div class="card" style="padding:18px;">
-          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-            <div style="font-size:20px;">${mood.emoji}</div>
-            <div style="font-weight:900; font-size:16px;">
-              🎯 ${result.interpretation || "Recommendations"}
-            </div>
-          </div>
-          <div style="color:rgba(255,255,255,.70); font-size:13px; line-height:1.5;">
-            Theme updated to <b>${mood.label}</b>. Click “Add Top 5” to push into playlist list.
-          </div>
-        </div>
-      `;
-
-      if(top5.length){
-        html += `<div class="recs">`;
-        top5.forEach((t,i) => {
-          const pct = Math.round((t.similarity || 0) * 100);
-          html += `
-            <div class="rec">
-              <div class="rec-top">
-                <div>
-                  <p class="rec-title">${i+1}. ${escapeHtml(t.name || "Unknown")}</p>
-                  <div class="rec-artist">${escapeHtml(t.artist || "Unknown Artist")}</div>
-                  <div class="rec-genre">🏷️ ${escapeHtml(t.genre || "Unknown")}</div>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="logo">♫ Playlist DJ</div>
+            
+            <div class="playlist-section">
+                <h3>📻 Your Playlist</h3>
+                <div class="track-list-sidebar" id="playlistTracks">
+                    <div class="track-item-sidebar" style="color: #666;">Your playlist will appear here</div>
                 </div>
-                <div class="badge">${pct}%</div>
-              </div>
             </div>
-          `;
-        });
-        html += `</div>`;
+        </div>
 
-        html += `<button class="add" onclick="addTracks()">➕ Add Top 5 to Playlist</button>`;
-      }else{
-        html += `<div class="error">No recommendations returned.</div>`;
-      }
+        <div class="main-content">
+            <div class="setup-section active" id="setupSection">
+                <div class="logo" style="justify-content: center; margin-bottom: 30px; font-size: 48px;">♫</div>
+                <h1>Playlist DJ</h1>
+                <p>Transform your music with AI-powered mood recommendations</p>
 
-      document.getElementById("messageResponse").innerHTML = html;
-    }
+                <div class="form-group">
+                    <label>📁 Upload CSV File</label>
+                    <input type="file" id="csvFile" accept=".csv" required>
+                    <small>Your Spotify features dataset</small>
+                </div>
 
-    async function addTracks(){
-      const indices = currentRecommendations.map(t => t.index);
-      if(!indices.length) return;
+                <div class="form-group">
+                    <label>🔑 Hugging Face API Key (Optional)</label>
+                    <input type="password" id="apiKey" placeholder="Leave blank for basic mode">
+                    <small>Get free at: https://huggingface.co/settings/tokens</small>
+                </div>
 
-      try{
-        const res = await fetch(`${API_BASE}/api/add-tracks`, {
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ indices })
-        });
-
-        const result = await res.json();
-        if(result.success){
-          const panel = document.getElementById("messageResponse");
-          panel.innerHTML += `<div class="success">✅ Tracks added to your playlist!</div>`;
-          updatePlaylist();
-        }else{
-          alert("Error: " + (result.error || "Failed"));
-        }
-      }catch(err){
-        alert("Error adding tracks: " + err.message);
-      }
-    }
-
-    async function updatePlaylist(){
-      try{
-        const res = await fetch(`${API_BASE}/api/playlist`);
-        const result = await res.json();
-
-        const holder = document.getElementById("playlistTracks");
-        let html = "";
-
-        if(result.tracks && result.tracks.length){
-          result.tracks.forEach(track => {
-            html += `
-              <div class="track">
-                <div class="dot"></div>
-                <div class="name">🎵 ${escapeHtml(track.name || "Unknown")}</div>
-              </div>
-            `;
-          });
-        }else{
-          html = `
-            <div class="track">
-              <div class="dot" style="opacity:.45;"></div>
-              <div class="name" style="opacity:.65;">No tracks yet</div>
+                <button class="btn" onclick="initializeApp()">Get Started</button>
             </div>
-          `;
+
+            <div class="chat-section" id="chatSection">
+                <h2 class="header-title">✨ Discover New Music</h2>
+
+                <div class="keywords">
+                    <strong>💡 Try these mood prompts:</strong>
+                    <p>energetic • sad • acoustic • chill • dance • electronic • upbeat • melancholic • relaxing • happy • slow • fast</p>
+                </div>
+
+                <div class="chat-input-container">
+                    <input type="text" id="userMessage" placeholder="Describe the mood you want..." onkeypress="handleEnter(event)">
+                    <button class="btn btn-send" onclick="sendMessage()">→</button>
+                </div>
+
+                <div id="messageResponse"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentRecommendations = [];
+        const API_BASE = "https://project-spotify-production.up.railway.app";
+
+        async function initializeApp() {
+            const csvFile = document.getElementById('csvFile').files[0];
+            const apiKey = document.getElementById('apiKey').value;
+
+            if (!csvFile) {
+                alert('Please select a CSV file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('csv_file', csvFile);
+            formData.append('api_key', apiKey);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/initialize`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('setupSection').classList.remove('active');
+                    document.getElementById('chatSection').classList.add('active');
+                    updatePlaylist();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Connection error: ' + error.message);
+            }
         }
 
-        holder.innerHTML = html;
-      }catch(err){
-        // silent
-        console.error("playlist update err:", err);
-      }
-    }
+        async function sendMessage() {
+            const message = document.getElementById('userMessage').value.trim();
+            if (!message) return;
 
-    setInterval(updatePlaylist, 2000);
+            document.getElementById('messageResponse').innerHTML = '<div class="loading">🎵 Finding the perfect tracks...</div>';
 
-    // ---------- Custom cursor (dot + ring + trail) ----------
-    const dot = document.getElementById("cursorDot");
-    const ring = document.getElementById("cursorRing");
-    const trail = document.getElementById("cursorTrail");
+            try {
+                const response = await fetch(`${API_BASE}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
 
-    let mx=0, my=0, rx=0, ry=0, tx=0, ty=0;
+                const result = await response.json();
 
-    window.addEventListener("mousemove", (e)=>{
-      mx = e.clientX; my = e.clientY;
-      dot.style.left = mx+"px";
-      dot.style.top  = my+"px";
-    });
+                if (result.success) {
+                    displayRecommendations(result);
+                    document.getElementById('userMessage').value = '';
+                } else {
+                    document.getElementById('messageResponse').innerHTML = `<div class="error">❌ ${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('messageResponse').innerHTML = `<div class="error">❌ ${error.message}</div>`;
+            }
+        }
 
-    function animate(){
-      // ring follows smoothly
-      rx += (mx - rx) * 0.16;
-      ry += (my - ry) * 0.16;
-      ring.style.left = rx+"px";
-      ring.style.top  = ry+"px";
+        function displayRecommendations(result) {
+            let html = `<h3>🎯 ${result.interpretation}</h3>`;
 
-      // trail slower
-      tx += (mx - tx) * 0.08;
-      ty += (my - ty) * 0.08;
-      trail.style.left = tx+"px";
-      trail.style.top  = ty+"px";
+            if (result.new_recommendations.length > 0) {
+                html += '<div class="recommendations"><h3>Top Matches</h3>';
+                
+                result.new_recommendations.slice(0, 5).forEach((track, i) => {
+                    html += `
+                        <div class="rec-item">
+                            <div class="rec-item-header">
+                                <div class="rec-item-title">
+                                    <strong>${i+1}. ${track.name}</strong>
+                                    <div class="rec-item-artist">${track.artist}</div>
+                                    <div class="rec-item-genre">${track.genre}</div>
+                                </div>
+                                <div class="similarity-badge">${Math.round(track.similarity * 100)}%</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                currentRecommendations = result.new_recommendations.slice(0, 5);
 
-      requestAnimationFrame(animate);
-    }
-    animate();
+                html += `<button class="add-btn" onclick="addTracks()">➕ Add Top 5 to Playlist</button>`;
+            }
 
-    // Cursor "press" effect
-    window.addEventListener("mousedown", ()=>{
-      ring.style.transform = "translate(-50%,-50%) scale(.85)";
-    });
-    window.addEventListener("mouseup", ()=>{
-      ring.style.transform = "translate(-50%,-50%) scale(1)";
-    });
+            document.getElementById('messageResponse').innerHTML = html;
+        }
 
-    // ---------- Helpers ----------
-    function escapeHtml(str){
-      return String(str).replace(/[&<>"']/g, (m)=>({
-        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-      }[m]));
-    }
-  </script>
+        async function addTracks() {
+            const indices = currentRecommendations.map(t => t.index);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/add-tracks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ indices })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const msgDiv = document.getElementById('messageResponse');
+                    msgDiv.innerHTML += '<div class="success">✅ Tracks added to your playlist!</div>';
+                    updatePlaylist();
+                }
+            } catch (error) {
+                alert('Error adding tracks: ' + error.message);
+            }
+        }
+
+        async function updatePlaylist() {
+            try {
+                const response = await fetch(`${API_BASE}/api/playlist`);
+                const result = await response.json();
+
+                let html = '';
+                if (result.tracks && result.tracks.length > 0) {
+                    result.tracks.forEach((track, idx) => {
+                        html += `<div class="track-item-sidebar">🎵 ${track.name}</div>`;
+                    });
+                } else {
+                    html = '<div class="track-item-sidebar" style="color: #666;">No tracks yet</div>';
+                }
+
+                document.getElementById('playlistTracks').innerHTML = html;
+            } catch (error) {
+                console.error('Error updating playlist:', error);
+            }
+        }
+
+        function handleEnter(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        setInterval(updatePlaylist, 2000);
+    </script>
 </body>
 </html>
