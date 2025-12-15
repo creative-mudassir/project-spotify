@@ -451,6 +451,7 @@
     <script>
         let currentRecommendations = [];
         const API_BASE = "https://project-spotify-production.up.railway.app";
+        let playlistInterval = null;
 
         async function initializeApp() {
             const csvFile = document.getElementById('csvFile').files[0];
@@ -473,12 +474,15 @@
 
                 const result = await response.json();
 
-                if (result.success) {
+                 if (result.success) {
                     document.getElementById('setupSection').classList.remove('active');
                     document.getElementById('chatSection').classList.add('active');
-                    updatePlaylist();
-                } else {
-                    alert('Error: ' + result.error);
+
+                    await updatePlaylist(); // run once immediately
+
+                    if (!playlistInterval) {
+                    playlistInterval = setInterval(updatePlaylist, 2000);
+                    }
                 }
             } catch (error) {
                 alert('Connection error: ' + error.message);
@@ -566,6 +570,7 @@
         async function updatePlaylist() {
             try {
                 const response = await fetch(`${API_BASE}/api/playlist`);
+                if (!response.ok) return; // ignore 400
                 const result = await response.json();
 
                 let html = '';
@@ -589,7 +594,6 @@
             }
         }
 
-        setInterval(updatePlaylist, 2000);
     </script>
 </body>
 </html>
