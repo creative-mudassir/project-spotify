@@ -735,7 +735,7 @@ HTML_TEMPLATE = '''
 <body>
     <div class="app-container">
         <div class="sidebar">
-            <div class="logo">♫ Playlist MDJ</div>
+            <div class="logo">♫ Playlist SSDJ</div>
             
             <div class="playlist-section">
                 <h3>📻 Your Playlist</h3>
@@ -786,6 +786,8 @@ HTML_TEMPLATE = '''
 
     <script>
         let currentRecommendations = [];
+        const API_BASE = "https://project-spotify-production.up.railway.app";
+        let playlistInterval = null;
 
         async function initializeApp() {
             const csvFile = document.getElementById('csvFile').files[0];
@@ -801,20 +803,20 @@ HTML_TEMPLATE = '''
             formData.append('api_key', apiKey);
 
             try {
-                const response = await fetch('/api/initialize', {
-                    method: 'POST',
-                    body: formData
-                });
+               const response = await fetch(`${API_BASE}/api/initialize`, { method: 'POST', body: formData });
 
-                const result = await response.json();
+                const text = await response.text();
+                let result;
+                try { result = JSON.parse(text); } 
+                catch { result = { success: false, error: text }; }
 
-                if (result.success) {
-                    document.getElementById('setupSection').classList.remove('active');
-                    document.getElementById('chatSection').classList.add('active');
-                    updatePlaylist();
-                } else {
-                    alert('Error: ' + result.error);
+                console.log("INIT", response.status, result);
+
+                if (!response.ok || !result.success) {
+                alert("Init failed: " + (result.error || response.status));
+                return;
                 }
+
             } catch (error) {
                 alert('Connection error: ' + error.message);
             }
@@ -827,7 +829,7 @@ HTML_TEMPLATE = '''
             document.getElementById('messageResponse').innerHTML = '<div class="loading">🎵 Finding the perfect tracks...</div>';
 
             try {
-                const response = await fetch('/api/chat', {
+                const response = await fetch(`${API_BASE}/api/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message })
@@ -880,7 +882,7 @@ HTML_TEMPLATE = '''
             const indices = currentRecommendations.map(t => t.index);
 
             try {
-                const response = await fetch('/api/add-tracks', {
+                const response = await fetch(`${API_BASE}/api/add-tracks`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ indices })
@@ -900,8 +902,14 @@ HTML_TEMPLATE = '''
 
         async function updatePlaylist() {
             try {
-                const response = await fetch('/api/playlist');
+                const response = await fetch(`${API_BASE}/api/playlist`);
+            
+            
+                if (!response.ok) return; // ignore 400
                 const result = await response.json();
+                if (!result.initialized) return; 
+
+
 
                 let html = '';
                 if (result.tracks && result.tracks.length > 0) {
@@ -924,7 +932,6 @@ HTML_TEMPLATE = '''
             }
         }
 
-        setInterval(updatePlaylist, 2000);
     </script>
 </body>
 </html>
