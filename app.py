@@ -321,6 +321,13 @@ class PlaylistTransformer:
 app = Flask(__name__)
 CORS(app)
 
+@app.get("/")
+def index():
+    with open("index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+    return Response(html, mimetype="text/html")
+
+
 @app.get("/health")
 def health():
     return jsonify({"ok": True})
@@ -930,9 +937,9 @@ HTML_TEMPLATE = '''
 </html>
 '''
 
-# @app.route('/')
-# def index():
-#     return render_template_string(HTML_TEMPLATE)
+@app.route('/')
+def index():
+    return render_template_string(HTML_TEMPLATE)
 
 
 @app.route('/api/initialize', methods=['POST'])
