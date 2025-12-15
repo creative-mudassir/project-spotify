@@ -735,7 +735,7 @@ HTML_TEMPLATE = '''
 <body>
     <div class="app-container">
         <div class="sidebar">
-            <div class="logo">♫ Playlist DJ</div>
+            <div class="logo">♫ Playlist MDJ</div>
             
             <div class="playlist-section">
                 <h3>📻 Your Playlist</h3>
